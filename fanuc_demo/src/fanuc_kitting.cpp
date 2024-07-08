@@ -78,14 +78,43 @@ std::pair<bool,moveit_msgs::msg::RobotTrajectory> FanucDemo::FanucPlanCartesian(
 
 bool FanucDemo::FanucSendTrajectory(moveit_msgs::msg::RobotTrajectory trajectory)
 {
-  for (auto point : trajectory.joint_trajectory.points)
-  {
-    std_msgs::msg::Float64MultiArray joint_positions;
-    joint_positions.data = point.positions;
-    fanuc_position_publisher_->publish(joint_positions);
-    usleep(100000);
-  }
+  // for (auto point : trajectory.joint_trajectory.points)
+  // {
+  //   std_msgs::msg::Float64MultiArray joint_positions;
+  //   joint_positions.data = point.positions;
+  //   fanuc_position_publisher_->publish(joint_positions);
+  //   usleep(100000);
+  //   std::stringstream joint_position_ss;
+  //   for (auto position : point.positions){
+  //     joint_position_ss << position << " ";
+  //   }
+  //   RCLCPP_INFO(get_logger(),"Joint Positions: %s",joint_position_ss.str().c_str());
+  // }
 
+  trajectory.joint_trajectory.points.back().positions[2] -= trajectory.joint_trajectory.points.back().positions[1];
+
+
+  std_msgs::msg::Float64MultiArray joint_positions;
+  trajectory.joint_trajectory.points.back().positions;
+  joint_positions.data = trajectory.joint_trajectory.points.back().positions;
+  fanuc_position_publisher_->publish(joint_positions);
+  usleep(100000);
+  std::stringstream joint_position_ss;
+  for (auto position : trajectory.joint_trajectory.points.back().positions){
+    joint_position_ss << position << " ";
+  }
+  RCLCPP_INFO(get_logger(),"Joint Positions: %s",joint_position_ss.str().c_str());
+
+
+  return true;
+}
+
+bool FanucDemo::MoveToJoints(std::vector<double> joint_values)
+{
+  std_msgs::msg::Float64MultiArray joint_positions;
+  joint_positions.data = joint_values;
+  fanuc_position_publisher_->publish(joint_positions);
+ 
   return true;
 }
 
@@ -104,30 +133,40 @@ bool FanucDemo::FanucCloseGripper()
 }
 
 bool FanucDemo::BuildTarget(){
-
-  // geometry_msgs::msg::Pose msg;
-  // msg.orientation.w = 1.0;
-  // msg.position.x = 0.1;
-  // msg.position.y = 0.1;
-  // msg.position.z = 0.1;
-
-  // fanuc_arm_.setPoseTarget(msg);
-  // auto plan = FanucPlantoTarget();
-  // if (plan.first)
-  // {
-  //   FanucSendTrajectory(plan.second);
-  // }
+  int joint_num = 1;
+  for (auto joint_value: fanuc_arm_.getCurrentJointValues()) {
+     RCLCPP_INFO_STREAM(get_logger(), "Joint " << joint_num << " : " << joint_value);
+     joint_num++;
+  }
 
   geometry_msgs::msg::Pose robot_pose = fanuc_arm_.getCurrentPose().pose;
-  std::vector<geometry_msgs::msg::Pose> waypoints;
-  robot_pose.position.x += 0.1;
-  waypoints.push_back(robot_pose);
 
-  auto plan = FanucPlanCartesian(waypoints, 0.1, 0.1, true);
+  RCLCPP_INFO_STREAM(get_logger(),"The current Robot Pose is X: " << robot_pose.position.x << " Y: " << robot_pose.position.y << " Z: " << robot_pose.position.z);
+
+  robot_pose.position.z -= 0.1;
+
+  RCLCPP_INFO_STREAM(get_logger(),"The New Target Robot Pose is X: " << robot_pose.position.x << " Y: " << robot_pose.position.y << " Z: " << robot_pose.position.z);
+
+  fanuc_arm_.setPoseTarget(robot_pose);
+  auto plan = FanucPlantoTarget();
   if (plan.first)
   {
     FanucSendTrajectory(plan.second);
   }
+
+  // geometry_msgs::msg::Pose robot_pose = fanuc_arm_.getCurrentPose().pose;
+
+  // RCLCPP_INFO_STREAM(get_logger(),"The current Robot Pose is X: " << robot_pose.position.x << " Y: " << robot_pose.position.y << " Z: " << robot_pose.position.z);
+
+  // std::vector<geometry_msgs::msg::Pose> waypoints;
+  // robot_pose.position.x += 0.1;
+  // waypoints.push_back(robot_pose);
+
+  // auto plan = FanucPlanCartesian(waypoints, 0.1, 0.1, true);
+  // if (plan.first)
+  // {
+  //   FanucSendTrajectory(plan.second);
+  // }
  
   return true;
 
@@ -139,7 +178,16 @@ int main(int argc, char *argv[])
 
   auto fanuc_demo = std::make_shared<FanucDemo>();
 
-  fanuc_demo->FanucSendHome();
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(fanuc_demo);
+  std::thread([&executor]() { executor.spin(); }).detach();
+
+  sleep(3);
+
+  std::vector<double> joint_values{1.54,0.0,0.0,0.0,-1.54,0.0};
+
+  // fanuc_demo->MoveToJoints(joint_values);
+  fanuc_demo->BuildTarget();
 
   rclcpp::shutdown();
 }

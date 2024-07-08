@@ -2,7 +2,7 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 
 #include <unistd.h>
-
+#include <sstream>
 #include <cmath>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -26,13 +26,14 @@ public:
   void FanucSendHome();
   bool FanucOpenGripper();
   bool FanucCloseGripper();
+  bool BuildTarget();
+  bool MoveToJoints(std::vector<double> joint_values);
 
 private:
   // Robot Move Functions
   std::pair<bool, moveit_msgs::msg::RobotTrajectory> FanucPlantoTarget();
   std::pair<bool, moveit_msgs::msg::RobotTrajectory> FanucPlanCartesian(std::vector<geometry_msgs::msg::Pose> waypoints, double vsf, double asf, bool avoid_collisions);
   bool FanucSendTrajectory(moveit_msgs::msg::RobotTrajectory trajectory);
-  bool BuildTarget();
 
   // MoveIt Interfaces
   moveit::planning_interface::MoveGroupInterface fanuc_arm_;
