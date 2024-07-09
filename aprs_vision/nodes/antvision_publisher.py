@@ -49,6 +49,17 @@ class ObjectLocationNode(Node):
         self.get_logger().info(f'Published objects: {[obj.name for obj in objects_msg.objects]}')
 
     def generate_unique_name(self, object_identifier):
+        mappings = {
+            Object.SMALL_GEAR: 'small_gear',
+            Object.MEDIUM_GEAR: 'medium_gear',
+            Object.LARGE_GEAR: 'large_gear',
+            Object.SMALL_GEAR_TRAY: 'small_gear_tray',
+            Object.MEDIUM_GEAR_TRAY: 'medium_gear_tray',
+            Object.LARGE_GEAR_TRAY: 'large_gear_tray',
+            Object.M2L1_KIT_TRAY: 'm2l1_kit_tray',
+            Object.S2L2_KIT_TRAY: 's2l2_kit_tray',
+        }
+        object_identifier = mappings.get(object_identifier)
         if object_identifier not in self.object_counters:
             self.object_counters[object_identifier] = 1
         else:
